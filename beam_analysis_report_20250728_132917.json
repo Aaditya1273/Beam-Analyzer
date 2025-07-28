@@ -1,0 +1,27 @@
+{
+    "analysis_info": {
+        "timestamp": "2025-07-28 13:29:17",
+        "beam_length": 12.0,
+        "cross_section": "0.3m \u00d7 0.6m",
+        "material": "High-strength steel",
+        "analysis_type": "Advanced FEA"
+    },
+    "loading": {
+        "supports": 3,
+        "point_loads": 4,
+        "total_load": 345.0
+    },
+    "results": {
+        "max_moment": 604.67,
+        "max_deflection": 0.01,
+        "max_stress": 0.03,
+        "safety_factor": 7442079908.62
+    },
+    "assessment": {
+        "status": "SAFE",
+        "recommendations": [
+            "Design meets all requirements",
+            "Consider value engineering opportunities"
+        ]
+    }
+}
