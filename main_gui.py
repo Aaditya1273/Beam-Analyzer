@@ -152,17 +152,18 @@ class Advanced3DBeamGUI(tb.Window):
         self.geometry("1600x1000")
         self.resizable(True, True)
         
+        # Initialize variables before they're used
+        self.beam_engine = None
+        self.animation_running = False
+        self.analysis_thread = None
+        self.stop_analysis = False
+        self.auto_analyze = tk.BooleanVar(value=True)
+        
         # Apply custom styling
         self.apply_custom_theme()
         
-        self.beam_engine = None
-        self.animation_running = False
+        # Create widgets after all variables are initialized
         self.create_advanced_widgets()
-        
-        # Real-time analysis
-        self.auto_analyze = tk.BooleanVar(value=True)
-        self.analysis_thread = None
-        self.stop_analysis = False
         
     def apply_custom_theme(self):
         """Apply advanced gradient theme and styling"""
@@ -635,10 +636,15 @@ class Advanced3DBeamGUI(tb.Window):
             if self.auto_analyze.get():
                 self.analyze_beam()
                 
-    def auto_analyze_callback(self):
+    def auto_analyze_callback(self, *args):
         """Callback for auto-analysis"""
-        if self.auto_analyze.get():
+        if not hasattr(self, 'auto_analyze') or not self.auto_analyze.get():
+            return
+        try:
             self.analyze_beam()
+        except Exception as e:
+            messagebox.showerror("Analysis Error", f"An error occurred during analysis: {str(e)}")
+            self.auto_analyze.set(False)  # Disable auto-analyze on error
 
     def analyze_beam(self):
         """Perform comprehensive beam analysis with enhanced calculations"""
