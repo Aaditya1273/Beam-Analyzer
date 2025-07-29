@@ -7,15 +7,6 @@
 
 A state-of-the-art structural analysis tool that combines a powerful Python backend with a stunning, interactive 3D web interface. Designed for engineers, students, and educators, this suite transforms complex beam analysis into an intuitive and visually engaging experience.
 
----
-
-## 🌟 Showcase
-
-*Replace these placeholders with GIFs or screenshots of your application!* 
-
-| 3D Interactive View | Dynamic Analysis Charts |
-| :-----------------: | :---------------------: |
-| ![3D View Placeholder](https://via.placeholder.com/400x300.png?text=3D+Beam+View) | ![Charts Placeholder](https://via.placeholder.com/400x300.png?text=Analysis+Charts) |
 
 ---
 
