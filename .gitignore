@@ -1,4 +1,30 @@
-# Byte-compiled / optimized / DLL files
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*~
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+
+# Log files
+*.log
+logs/
+beam_master.log
+
+# IDE and editor configuration
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
 __pycache__/
 *.py[cod]
 *$py.class

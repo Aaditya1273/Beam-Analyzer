@@ -158,6 +158,10 @@ class Advanced3DBeamGUI(tb.Window):
         self.analysis_thread = None
         self.stop_analysis = False
         self.auto_analyze = tk.BooleanVar(value=True)
+        self.results_panel_visible = tk.BooleanVar(value=True)
+        self.results_panel = None
+        self.viz_panel = None
+        self.main_container = None
         
         # Apply custom styling
         self.apply_custom_theme()
@@ -182,23 +186,24 @@ class Advanced3DBeamGUI(tb.Window):
         
     def create_advanced_widgets(self):
         # Create main container with gradient background
-        main_container = tb.Frame(self, padding=10)
-        main_container.pack(fill=BOTH, expand=YES)
+        self.main_container = tb.Frame(self, padding=10)
+        self.main_container.pack(fill=BOTH, expand=YES)
         
         # Configure advanced grid layout
-        main_container.grid_columnconfigure(0, weight=1, minsize=400)
-        main_container.grid_columnconfigure(1, weight=2, minsize=800)
-        main_container.grid_columnconfigure(2, weight=1, minsize=400)
-        main_container.grid_rowconfigure(0, weight=1)
+        self.main_container.grid_columnconfigure(0, weight=1, minsize=400)
+        self.main_container.grid_columnconfigure(1, weight=2, minsize=800)
+        self.main_container.grid_columnconfigure(2, weight=1, minsize=400)
+        self.main_container.grid_rowconfigure(0, weight=1)
         
         # Left Panel - Advanced Controls
-        self.create_control_panel(main_container)
+        self.create_control_panel(self.main_container)
         
         # Center Panel - 3D Visualization
-        self.create_3d_visualization_panel(main_container)
+        self.create_3d_visualization_panel(self.main_container)
         
         # Right Panel - Real-time Results & Analysis
-        self.create_results_panel(main_container)
+        self.results_panel = self.create_results_panel(self.main_container)
+        self.results_panel.grid(row=0, column=2, padx=5, pady=5, sticky="nsew")
         
         # Bottom Status Bar
         self.create_status_bar()
@@ -364,9 +369,9 @@ class Advanced3DBeamGUI(tb.Window):
         clear_btn.pack(fill=X, pady=2)
         
     def create_3d_visualization_panel(self, parent):
-        viz_panel = tb.Labelframe(parent, text="🎯 3D Interactive Visualization", 
+        self.viz_panel = tb.Labelframe(parent, text="🎯 3D Interactive Visualization", 
                                  padding=10, bootstyle="success")
-        viz_panel.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+        self.viz_panel.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
         
         # Create matplotlib figure with 3D capabilities
         self.fig = plt.figure(figsize=(12, 8), facecolor='#2c3e50')
@@ -394,21 +399,36 @@ class Advanced3DBeamGUI(tb.Window):
         plt.tight_layout()
         
         # Embed in tkinter
-        self.canvas = FigureCanvasTkAgg(self.fig, master=viz_panel)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.viz_panel)
         self.canvas.get_tk_widget().pack(fill=BOTH, expand=YES)
         
         # Initialize empty plot
         self.update_3d_visualization()
         
+    def toggle_results_panel(self):
+        is_visible = self.results_panel_visible.get()
+        if is_visible:
+            self.results_panel.grid_remove()
+            self.main_container.grid_columnconfigure(1, weight=3)
+            self.main_container.grid_columnconfigure(2, weight=0)
+        else:
+            self.results_panel.grid()
+            self.main_container.grid_columnconfigure(1, weight=2)
+            self.main_container.grid_columnconfigure(2, weight=1)
+        self.results_panel_visible.set(not is_visible)
+
     def create_results_panel(self, parent):
         results_panel = tb.Labelframe(parent, text="📊 Real-time Results Dashboard", 
                                      padding=10, bootstyle="warning")
-        results_panel.grid(row=0, column=2, padx=5, pady=5, sticky="nsew")
-        
+
+        # Add a toggle button
+        toggle_button = tb.Button(results_panel, text="<>", command=self.toggle_results_panel, bootstyle="light-outline", width=3)
+        toggle_button.place(relx=1.0, rely=0, anchor='ne', x=-5, y=5)
+
         # Results notebook
         results_notebook = tb.Notebook(results_panel, bootstyle="warning")
-        results_notebook.pack(fill=BOTH, expand=YES)
-        
+        results_notebook.pack(fill=BOTH, expand=YES, pady=(20,0)) # Add padding to avoid overlap
+
         # Summary tab
         summary_tab = tb.Frame(results_notebook)
         results_notebook.add(summary_tab, text="Summary")
@@ -423,6 +443,8 @@ class Advanced3DBeamGUI(tb.Window):
         safety_tab = tb.Frame(results_notebook)
         results_notebook.add(safety_tab, text="Safety")
         self.create_safety_tab(safety_tab)
+
+        return results_panel
         
     def create_summary_tab(self, parent):
         summary_frame = tb.Frame(parent, padding=10)
@@ -941,15 +963,16 @@ class Advanced3DBeamGUI(tb.Window):
         
         # Plot deflection curve as a 3D line with varying colors
         for i in range(len(x)-1):
-            self.ax_3d.plot(x[i:i+2], [0, 0], 
-                           height + scaled_deflection[i:i+2],
+            self.ax_3d.plot(x[i:i+2], [0,0], height + scaled_deflection[i:i+2],
                            color=deflection_colors[i], linewidth=3, alpha=0.9)
             
         # Add deflection magnitude indicators
         critical_points = np.where(np.abs(scaled_deflection) > 0.1 * np.max(np.abs(scaled_deflection)))[0]
-        for idx in critical_points[::len(critical_points)//5]:  # Show 5 indicators
-            self.ax_3d.scatter([x[idx]], [0], [height + scaled_deflection[idx]], 
-                             c='red', s=100, alpha=0.8, edgecolors='white', linewidth=2)
+        if len(critical_points) > 0:
+            step = max(1, len(critical_points) // 5)
+            for idx in critical_points[::step]:
+                self.ax_3d.scatter([x[idx]], [0], [height + scaled_deflection[idx]], 
+                                 c='red', s=100, alpha=0.8, edgecolors='white', linewidth=2)
             
         # Add deflection curve legend
         max_def_idx = np.argmax(np.abs(scaled_deflection))
@@ -962,54 +985,71 @@ class Advanced3DBeamGUI(tb.Window):
         """Update 2D analysis plots with professional styling"""
         if not self.beam_engine or not hasattr(self.beam_engine, 'results'):
             return
-            
+
         results = self.beam_engine.results
         x = results['x']
-        
-        # Clear previous plots
-        self.ax_shear.clear()
-        self.ax_moment.clear()
-        
-        # Enhanced shear force diagram
         shear = results['shear'] / 1000  # Convert to kN
-        self.ax_shear.plot(x, shear, linewidth=3, color='#ff6b6b', alpha=0.8, label='Shear Force')
-        self.ax_shear.fill_between(x, 0, shear, alpha=0.3, color='#ff6b6b')
-        self.ax_shear.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-        self.ax_shear.set_ylabel('Shear Force (kN)', color='white', fontweight='bold')
-        self.ax_shear.set_title('Shear Force Diagram', color='white', fontweight='bold', fontsize=12)
-        self.ax_shear.grid(True, alpha=0.3, color='cyan')
-        self.ax_shear.legend(facecolor='black', edgecolor='white')
-        
-        # Enhanced bending moment diagram
-        moment = results['moment'] / 1000  # Convert to kN⋅m
-        self.ax_moment.plot(x, moment, linewidth=3, color='#4ecdc4', alpha=0.8, label='Bending Moment')
-        self.ax_moment.fill_between(x, 0, moment, alpha=0.3, color='#4ecdc4')
-        self.ax_moment.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-        self.ax_moment.set_ylabel('Moment (kN⋅m)', color='white', fontweight='bold')
-        self.ax_moment.set_xlabel('Position (m)', color='white', fontweight='bold')
-        self.ax_moment.set_title('Bending Moment Diagram', color='white', fontweight='bold', fontsize=12)
-        self.ax_moment.grid(True, alpha=0.3, color='cyan')
-        self.ax_moment.legend(facecolor='black', edgecolor='white')
-        
-        # Add critical points annotations
-        max_shear_idx = np.argmax(np.abs(shear))
-        max_moment_idx = np.argmax(np.abs(moment))
-        
-        self.ax_shear.annotate(f'Max: {shear[max_shear_idx]:.1f} kN',
-                              xy=(x[max_shear_idx], shear[max_shear_idx]),
-                              xytext=(10, 10), textcoords='offset points',
-                              bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.8),
-                              color='black', fontweight='bold',
-                              arrowprops=dict(arrowstyle='->', color='yellow'))
-                              
-        self.ax_moment.annotate(f'Max: {moment[max_moment_idx]:.1f} kN⋅m',
-                               xy=(x[max_moment_idx], moment[max_moment_idx]),
-                               xytext=(10, 10), textcoords='offset points',
-                               bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.8),
-                               color='black', fontweight='bold',
-                               arrowprops=dict(arrowstyle='->', color='yellow'))
-        
-        plt.tight_layout()
+        moment = results['moment'] / 1000  # Convert to kN·m
+
+        # --- Plot Styling Function ---
+        def style_plot(ax, data, color, title, ylabel, xlabel=None):
+            ax.clear()
+            ax.axhline(y=0, color='white', linestyle='--', alpha=0.6, linewidth=1)
+
+            # Plot shadow for depth
+            ax.plot(x, data, linewidth=4, color='black', alpha=0.2)
+            # Main plot line
+            ax.plot(x, data, linewidth=2.5, color=color, label=title)
+            ax.fill_between(x, 0, data, alpha=0.2, color=color)
+
+            ax.set_title(title, color='white', fontweight='bold', fontsize=14, pad=15)
+            ax.set_ylabel(ylabel, color='#bdc3c7', fontweight='bold', fontsize=11)
+            if xlabel:
+                ax.set_xlabel(xlabel, color='#bdc3c7', fontweight='bold', fontsize=11)
+
+            ax.grid(True, which='major', linestyle='--', linewidth=0.5, alpha=0.4, color='cyan')
+            ax.tick_params(axis='x', colors='white', labelsize=10)
+            ax.tick_params(axis='y', colors='white', labelsize=10)
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#566573')
+
+            legend = ax.legend(loc='upper right', frameon=True, fontsize=10)
+            legend.get_frame().set_facecolor('#2c3e50')
+            legend.get_frame().set_edgecolor('#34495e')
+            for text in legend.get_texts():
+                text.set_color('white')
+
+        # --- Annotation Styling Function ---
+        def add_max_annotation(ax, data, x_coords, unit):
+            if len(data) == 0:
+                return
+            max_val = data[np.argmax(np.abs(data))]
+            max_idx = np.argmax(np.abs(data))
+            x_pos = x_coords[max_idx]
+            
+            # Dynamic positioning of annotation
+            y_pos = max_val
+            x_offset = 15
+            y_offset = 15 if y_pos >= 0 else -30
+
+            ax.annotate(f'Max Abs: {abs(max_val):.2f} {unit}',
+                        xy=(x_pos, y_pos),
+                        xytext=(x_offset, y_offset), textcoords='offset points',
+                        ha='left',
+                        bbox=dict(boxstyle='round,pad=0.4', fc='#34495e', ec='#bdc3c7', alpha=0.9),
+                        color='#ecf0f1', fontweight='bold', fontsize=9,
+                        arrowprops=dict(arrowstyle='-|>', color='#ecf0f1', lw=1.5,
+                                        connectionstyle="arc3,rad=0.1"))
+
+        # --- Apply styles to plots ---
+        style_plot(self.ax_shear, shear, '#e74c3c', 'Shear Force Diagram', 'Shear Force (kN)')
+        style_plot(self.ax_moment, moment, '#3498db', 'Bending Moment Diagram', 'Moment (kN·m)', 'Position (m)')
+
+        # --- Add annotations ---
+        add_max_annotation(self.ax_shear, shear, x, 'kN')
+        add_max_annotation(self.ax_moment, moment, x, 'kN·m')
+
+        plt.tight_layout(pad=3.0)
         self.canvas.draw()
         
     def update_results_display(self):
@@ -1074,7 +1114,7 @@ REACTION FORCES:
 DEFLECTION ANALYSIS:
 {'-'*20}
 Maximum Deflection: {results['max_deflection']*1000:.3f} mm
-Location of Max Deflection: {results['x'][np.argmax(np.abs(results['deflection'])):]:.2f} m
+Location of Max Deflection: {results['x'][np.argmax(np.abs(results['deflection']))]:.2f} m
 Deflection Limit (L/250): {self.beam_engine.beam_props.length*1000/250:.3f} mm
 
 STRESS ANALYSIS:
@@ -1087,7 +1127,113 @@ MOMENT ANALYSIS:
 {'-'*20}
 Maximum Positive Moment: {np.max(results['moment'])/1000:.2f} kN⋅m
 Maximum Negative Moment: {np.min(results['moment'])/1000:.2f} kN⋅m
-Location of Max Moment: {results['x'][np.argmax(np.abs(results['moment'])):]:.2f} m
+Location of Max Moment: {results['x'][np.argmax(np.abs(results['moment']))]:.2f} m
+
+SHEAR ANALYSIS:
+{'-'*20}
+Maximum Shear: {np.max(np.abs(results['shear']))/1000:.2f} kN
+Critical Shear Locations: Multiple points analyzed
+"""
+        
+        self.detailed_text.config(state="normal")
+        self.detailed_text.delete(1.0, tk.END)
+        self.detailed_text.insert(tk.END, detailed)
+        self.detailed_text.config(state="disabled")
+        
+        # Update safety assessment
+        self.update_safety_assessment(results)
+        
+    def update_safety_assessment(self, results):
+        """Comprehensive safety assessment with color-coded warnings"""
+        max_stress = results['max_stress'] / 1e6  # MPa
+        max_deflection = results['max_deflection'] * 1000  # mm
+        deflection_limit = self.beam_engine.beam_props.length * 1000 / 250  # mm
+        
+        safety = f"""
+COMPREHENSIVE SAFETY ASSESSMENT
+{'='*50}
+
+STRUCTURAL INTEGRITY CHECK:
+{'-'*30}
+
+"""
+        
+        # Stress safety check
+        if max_stress < 150:
+            safety += "✅ STRESS: EXCELLENT - Well within safe limits\n"
+        elif max_stress < 200:
+            safety += "⚠️  STRESS: GOOD - Acceptable stress levels\n"
+        elif max_stress < 250:
+            safety += "🔶 STRESS: CAUTION - Approaching design limits\n"
+        else:
+            safety += "❌ STRESS: CRITICAL - Exceeds safe limits!\n"
+            
+        safety += f"   Current: {max_stress:.2f} MPa | Limit: 250 MPa\n\n"
+        
+        # Deflection safety check
+        if max_deflection < deflection_limit * 0.5:
+            safety += "✅ DEFLECTION: EXCELLENT - Minimal deflection\n"
+        elif max_deflection < deflection_limit * 0.8:
+            safety += "⚠️  DEFLECTION: GOOD - Acceptable deflection\n"
+        elif max_deflection < deflection_limit:
+            safety += "🔶 DEFLECTION: CAUTION - Approaching limits\n"
+        else:
+            safety += "❌ DEFLECTION: CRITICAL - Exceeds limits!\n"
+            
+        safety += f"   Current: {max_deflection:.3f} mm | Limit: {deflection_limit:.3f} mm\n\n"
+        
+        # Overall safety rating
+        stress_factor = 250 / max_stress if max_stress > 0 else float('inf')
+        deflection_factor = deflection_limit / max_deflection if max_deflection > 0 else float('inf')
+        overall_factor = min(stress_factor, deflection_factor)
+        
+        safety += f"""
+OVERALL SAFETY FACTORS:
+{'-'*25}
+Stress Safety Factor: {stress_factor:.2f}
+Deflection Safety Factor: {deflection_factor:.2f}
+Critical Safety Factor: {overall_factor:.2f}
+
+RECOMMENDATIONS:
+{'-'*15}
+"""
+        
+        if overall_factor > 3:
+            safety += "✅ Structure is over-designed. Consider optimization.\n"
+        elif overall_factor > 2:
+            safety += "✅ Excellent safety margin. Design is robust.\n"
+        elif overall_factor > 1.5:
+            safety += "⚠️  Adequate safety. Monitor under service loads.\n"
+        elif overall_factor > 1:
+            safety += "🔶 Minimal safety margin. Consider reinforcement.\n"
+        else:
+            safety += "❌ UNSAFE DESIGN! Immediate redesign required!\n"
+            
+        self.safety_text.config(state="normal")
+        self.safety_text.delete(1.0, tk.END)
+        self.safety_text.insert(tk.END, safety)
+        self.safety_text.config(state="disabled")
+        for i, (support, reaction) in enumerate(zip(self.beam_engine.supports, results['reactions'])):
+            detailed += f"R{i+1} ({support.type} @ {support.position:.2f}m): {reaction/1000:.2f} kN\n"
+            
+        detailed += f"""
+DEFLECTION ANALYSIS:
+{'-'*20}
+Maximum Deflection: {results['max_deflection']*1000:.3f} mm
+Location of Max Deflection: {results['x'][np.argmax(np.abs(results['deflection']))]:.2f} m
+Deflection Limit (L/250): {self.beam_engine.beam_props.length*1000/250:.3f} mm
+
+STRESS ANALYSIS:
+{'-'*20}
+Maximum Stress: {results['max_stress']/1e6:.2f} MPa
+Allowable Stress (Steel): 250 MPa
+Safety Factor: {250/(results['max_stress']/1e6):.2f}
+
+MOMENT ANALYSIS:
+{'-'*20}
+Maximum Positive Moment: {np.max(results['moment'])/1000:.2f} kN⋅m
+Maximum Negative Moment: {np.min(results['moment'])/1000:.2f} kN⋅m
+Location of Max Moment: {results['x'][np.argmax(np.abs(results['moment']))]:.2f} m
 
 SHEAR ANALYSIS:
 {'-'*20}
